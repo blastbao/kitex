@@ -73,14 +73,14 @@ func (c *defaultCodec) Encode(ctx context.Context, message remote.Message, out r
 
 	// 1. encode header and return totalLenField if needed
 	// totalLenField will be filled after payload encoded
-	if tp == transport.TTHeader || tp == transport.TTHeaderFramed {
+	if tp&transport.TTHeader == transport.TTHeader {
 		if totalLenField, err = ttHeaderCodec.encode(ctx, message, out); err != nil {
 			return err
 		}
 		headerLen = out.MallocLen()
 	}
 	// 2. malloc framed field if needed
-	if tp == transport.TTHeaderFramed || tp == transport.Framed {
+	if tp&transport.Framed == transport.Framed {
 		if framedLenField, err = out.Malloc(Size32); err != nil {
 			return err
 		}
@@ -93,7 +93,7 @@ func (c *defaultCodec) Encode(ctx context.Context, message remote.Message, out r
 	}
 
 	// 4. fill framed field if needed
-	if tp == transport.TTHeaderFramed || tp == transport.Framed {
+	if tp&transport.Framed == transport.Framed {
 		if framedLenField == nil {
 			return perrors.NewProtocolErrorWithMsg("no buffer allocated for the framed length field")
 		}
@@ -102,7 +102,7 @@ func (c *defaultCodec) Encode(ctx context.Context, message remote.Message, out r
 		return perrors.NewProtocolErrorWithMsg("protobuf just support 'framed' trans proto")
 	}
 	// 5. fill totalLen field for header if needed
-	if tp == transport.TTHeader || tp == transport.TTHeaderFramed {
+	if tp&transport.TTHeader == transport.TTHeader {
 		if totalLenField == nil {
 			return perrors.NewProtocolErrorWithMsg("no buffer allocated for the header length field")
 		}
@@ -123,7 +123,7 @@ func (c *defaultCodec) Decode(ctx context.Context, message remote.Message, in re
 		return perrors.NewProtocolErrorWithErrMsg(err, fmt.Sprintf("default codec read failed: %s", err.Error()))
 	}
 
-	if err = checkRPCState(ctx); err != nil {
+	if err = checkRPCState(ctx, message); err != nil {
 		// there is one call has finished in retry task, it doesn't need to do decode for this call
 		return err
 	}
@@ -209,7 +209,7 @@ func isMeshHeader(flagBuf []byte) bool {
 }
 
 /**
- * protobuf 默认有Framed
+ * Kitex protobuf has framed field
  * +------------------------------------------------------------+
  * |                  4Byte                 |       2Byte       |
  * +------------------------------------------------------------+
@@ -242,9 +242,16 @@ func isThriftFramedBinary(flagBuf []byte) bool {
 	return binary.BigEndian.Uint32(flagBuf[Size32:])&MagicMask == ThriftV1Magic
 }
 
-func checkRPCState(ctx context.Context) error {
-	if respOp, ok := ctx.Value(retry.CtxRespOp).(*int32); ok && atomic.LoadInt32(respOp) == retry.OpDone {
-		return kerrors.ErrRPCFinish
+func checkRPCState(ctx context.Context, message remote.Message) error {
+	if message.RPCRole() == remote.Server {
+		return nil
+	}
+	if respOp, ok := ctx.Value(retry.CtxRespOp).(*int32); ok {
+		if !atomic.CompareAndSwapInt32(respOp, retry.OpNo, retry.OpDoing) {
+			// previous call is being handling or done
+			// this flag is used to check request status in retry(backup request) scene
+			return kerrors.ErrRPCFinish
+		}
 	}
 	return nil
 }

@@ -108,8 +108,10 @@ func (s *server) initRPCInfoFunc() func(context.Context, net.Addr) (rpcinfo.RPCI
 		if ctx == nil {
 			ctx = context.Background()
 		}
-		stats := rpcinfo.AsMutableRPCStats(rpcinfo.NewRPCStats())
-		stats.SetLevel(s.opt.StatsLevel)
+		rpcStats := rpcinfo.AsMutableRPCStats(rpcinfo.NewRPCStats())
+		if s.opt.StatsLevel != nil {
+			rpcStats.SetLevel(*s.opt.StatsLevel)
+		}
 
 		// Export read-only views to external users and keep a mapping for internal users.
 		ri := rpcinfo.NewRPCInfo(
@@ -117,7 +119,7 @@ func (s *server) initRPCInfoFunc() func(context.Context, net.Addr) (rpcinfo.RPCI
 			rpcinfo.FromBasicInfo(s.opt.Svr),
 			rpcinfo.NewServerInvocation(),
 			rpcinfo.AsMutableRPCConfig(s.opt.Configs).Clone().ImmutableView(),
-			stats.ImmutableView(),
+			rpcStats.ImmutableView(),
 		)
 		rpcinfo.AsMutableEndpointInfo(ri.From()).SetAddress(rAddr)
 		ctx = rpcinfo.NewCtxWithRPCInfo(ctx, ri)
@@ -256,22 +258,23 @@ func (s *server) richRemoteOption() {
 }
 
 func (s *server) addBoundHandlers(opt *remote.ServerOption) {
-	// for server limiter, the handler should be added as first one
-	connLimit, qpsLimit, ok := s.buildLimiterWithOpt()
-	if ok {
-		limitHdlr := bound.NewServerLimiterHandler(connLimit, qpsLimit, s.opt.LimitReporter)
-		doAddFirstBoundHandler(limitHdlr, opt)
-	}
-
 	// for server trans info handler
 	if len(s.opt.MetaHandlers) > 0 {
 		transInfoHdlr := bound.NewTransMetaHandler(s.opt.MetaHandlers)
-		doAddBoundHandler(transInfoHdlr, opt)
+		// meta handler exec before boundHandlers which add with option
+		doAddBoundHandlerToHead(transInfoHdlr, opt)
 		for _, h := range s.opt.MetaHandlers {
 			if shdlr, ok := h.(remote.StreamingMetaHandler); ok {
 				opt.StreamingMetaHandlers = append(opt.StreamingMetaHandlers, shdlr)
 			}
 		}
+	}
+
+	// for server limiter, the handler should be added as first one
+	connLimit, qpsLimit, ok := s.buildLimiterWithOpt()
+	if ok {
+		limitHdlr := bound.NewServerLimiterHandler(connLimit, qpsLimit, s.opt.LimitReporter)
+		doAddBoundHandlerToHead(limitHdlr, opt)
 	}
 }
 
@@ -308,7 +311,7 @@ func (s *server) check() error {
 	return nil
 }
 
-func doAddFirstBoundHandler(h remote.BoundHandler, opt *remote.ServerOption) {
+func doAddBoundHandlerToHead(h remote.BoundHandler, opt *remote.ServerOption) {
 	add := false
 	if ih, ok := h.(remote.InboundHandler); ok {
 		handlers := []remote.InboundHandler{ih}
@@ -321,7 +324,7 @@ func doAddFirstBoundHandler(h remote.BoundHandler, opt *remote.ServerOption) {
 		add = true
 	}
 	if !add {
-		panic("invalid BoundHandler: must implement InboundHandler or OuboundHandler")
+		panic("invalid BoundHandler: must implement InboundHandler or OutboundHandler")
 	}
 }
 
@@ -336,7 +339,7 @@ func doAddBoundHandler(h remote.BoundHandler, opt *remote.ServerOption) {
 		add = true
 	}
 	if !add {
-		panic("invalid BoundHandler: must implement InboundHandler or OuboundHandler")
+		panic("invalid BoundHandler: must implement InboundHandler or OutboundHandler")
 	}
 }
 

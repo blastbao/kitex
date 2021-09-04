@@ -18,6 +18,8 @@
 package client
 
 import (
+	"time"
+
 	"github.com/cloudwego/kitex/internal/configutil"
 	internal_stats "github.com/cloudwego/kitex/internal/stats"
 	"github.com/cloudwego/kitex/pkg/acl"
@@ -84,7 +86,7 @@ type Options struct {
 	// Observability
 	Logger     klog.FormatLogger
 	TracerCtl  *internal_stats.Controller
-	StatsLevel stats.Level
+	StatsLevel *stats.Level
 
 	// retry policy
 	RetryPolicy    *retry.Policy
@@ -121,8 +123,7 @@ func NewOptions(opts []Option) *Options {
 		Bus:    event.NewEventBus(),
 		Events: event.NewQueue(event.MaxEventNum),
 
-		TracerCtl:  &internal_stats.Controller{},
-		StatsLevel: stats.LevelDetailed,
+		TracerCtl: &internal_stats.Controller{},
 	}
 	o.Apply(opts)
 
@@ -131,15 +132,35 @@ func NewOptions(opts []Option) *Options {
 	if o.RetryContainer != nil && o.DebugService != nil {
 		o.DebugService.RegisterProbeFunc(diagnosis.RetryPolicyKey, o.RetryContainer.Dump)
 	}
+
+	if o.StatsLevel == nil {
+		level := stats.LevelDisabled
+		if o.TracerCtl.HasTracer() {
+			level = stats.LevelDetailed
+		}
+		o.StatsLevel = &level
+	}
 	return o
 }
 
 func (o *Options) initConnectionPool() {
 	if o.RemoteOpt.ConnPool == nil {
 		if o.PoolCfg != nil {
-			o.RemoteOpt.ConnPool = connpool.NewLongPool(o.Svr.ServiceName, *o.PoolCfg)
+			var zero connpool2.IdleConfig
+			if *o.PoolCfg == zero {
+				o.RemoteOpt.ConnPool = connpool.NewShortPool(o.Svr.ServiceName)
+			} else {
+				o.RemoteOpt.ConnPool = connpool.NewLongPool(o.Svr.ServiceName, *o.PoolCfg)
+			}
 		} else {
-			o.RemoteOpt.ConnPool = connpool.NewShortPool(o.Svr.ServiceName)
+			o.RemoteOpt.ConnPool = connpool.NewLongPool(
+				o.Svr.ServiceName,
+				connpool2.IdleConfig{
+					MaxIdlePerAddress: 10,
+					MaxIdleGlobal:     100,
+					MaxIdleTimeout:    time.Minute,
+				},
+			)
 		}
 	}
 	pool := o.RemoteOpt.ConnPool
@@ -150,6 +171,20 @@ func (o *Options) initConnectionPool() {
 	}
 	if r, ok := pool.(remote.ConnPoolReporter); ok && o.RemoteOpt.EnableConnPoolReporter {
 		r.EnableReporter()
+	}
+
+	if long, ok := pool.(remote.LongConnPool); ok {
+		o.Bus.Watch(discovery.ChangeEventName, func(ev *event.Event) {
+			ch, ok := ev.Extra.(*discovery.Change)
+			if !ok {
+				return
+			}
+			for _, inst := range ch.Removed {
+				if addr := inst.Address(); addr != nil {
+					long.Clean(addr.Network(), addr.String())
+				}
+			}
+		})
 	}
 }
 

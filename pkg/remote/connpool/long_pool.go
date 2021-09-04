@@ -169,6 +169,7 @@ func (lp *LongPool) getPeer(addr netAddr) *peer {
 }
 
 // Get pick or generate a net.Conn and return
+// The context is not used but leave it for now.
 func (lp *LongPool) Get(ctx context.Context, network, address string, opt *remote.ConnOption) (net.Conn, error) {
 	addr := netAddr{network, address}
 	p := lp.getPeer(addr)
@@ -243,6 +244,7 @@ func (lp *LongPool) EnableReporter() {
 
 // NewLongPool creates a long pool using the given IdleConfig.
 func NewLongPool(serviceName string, idlConfig connpool.IdleConfig) *LongPool {
+	limit := utils.NewMaxCounter(idlConfig.MaxIdleGlobal)
 	return &LongPool{
 		reporter: &DummyReporter{},
 		newPeer: func(addr net.Addr) *peer {
@@ -251,7 +253,7 @@ func NewLongPool(serviceName string, idlConfig connpool.IdleConfig) *LongPool {
 				addr,
 				idlConfig.MaxIdlePerAddress,
 				idlConfig.MaxIdleTimeout,
-				utils.NewMaxCounter(idlConfig.MaxIdleGlobal))
+				limit)
 		},
 	}
 }

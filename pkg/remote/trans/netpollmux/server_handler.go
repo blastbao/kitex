@@ -194,9 +194,9 @@ func (t *svrTransHandler) OnRead(muxSvrConnCtx context.Context, conn net.Conn) e
 		}
 		err = t.transPipe.OnMessage(ctx, recvMsg, sendMsg)
 		if err != nil {
-			// error cannot be wrapped to print here, so it must exec before NewTransErrorWithMsg
+			// error cannot be wrapped to print here, so it must exec before NewTransError
 			t.OnError(ctx, err, muxSvrConn)
-			err = remote.NewTransErrorWithMsg(remote.InternalError, err.Error())
+			err = remote.NewTransError(remote.InternalError, err)
 			t.writeErrorReplyIfNeeded(ctx, recvMsg, muxSvrConn, rpcInfo, err, false, false)
 			return
 		}
@@ -206,7 +206,6 @@ func (t *svrTransHandler) OnRead(muxSvrConnCtx context.Context, conn net.Conn) e
 			t.OnError(ctx, err, muxSvrConn)
 			return
 		}
-		return
 	})
 	return nil
 }
@@ -290,7 +289,7 @@ func (t *svrTransHandler) writeErrorReplyIfNeeded(ctx context.Context, recvMsg r
 			return
 		}
 	}
-	transErr, isTransErr := err.(remote.TransError)
+	transErr, isTransErr := err.(*remote.TransError)
 	if !isTransErr {
 		return
 	}
@@ -304,7 +303,6 @@ func (t *svrTransHandler) writeErrorReplyIfNeeded(ctx context.Context, recvMsg r
 	if err != nil {
 		t.opt.Logger.Errorf("KITEX: write error reply failed, remote=%s, err=%s", conn.RemoteAddr(), err.Error())
 	}
-	return
 }
 
 func (t *svrTransHandler) tryRecover(ctx context.Context, conn net.Conn) {
@@ -341,5 +339,8 @@ func (t *svrTransHandler) finishTracer(ctx context.Context, ri rpcinfo.RPCInfo, 
 		err = nil
 	}
 	t.opt.TracerCtl.DoFinish(ctx, ri, err, t.opt.Logger)
+	// for server side, rpcinfo is reused on connection, clear the rpc stats info but keep the level config
+	sl := ri.Stats().Level()
 	rpcStats.Reset()
+	rpcStats.SetLevel(sl)
 }

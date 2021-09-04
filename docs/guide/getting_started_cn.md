@@ -1,29 +1,71 @@
 # Getting Started
 
-在完成环境准备后，本章节讲帮助你快速上手 Kitex
+## 准备 Golang 开发环境
+
+1. 如果您之前未搭建 Golang 开发环境， 可以参考 [Golang 安装](https://golang.org/doc/install)
+2. 推荐使用最新版本的 Golang，或保证现有 Golang 版本 >= 1.15。小于 1.15 版本，可以自行尝试使用但不保障兼容性和稳定性
+3. 确保打开 go mod 支持 (Golang >= 1.15时，默认开启)
 
 ## 快速上手
 
+在完成环境准备后，本章节将帮助你快速上手 Kitex
+
+### 安装代码生成工具
+
+首先，我们需要安装使用本示例所需要的命令行代码生成工具：
+
+1. 确保 `GOPATH` 环境变量已经被正确地定义（例如 `export GOPATH=~/go`）并且将`$GOPATH/bin`添加到 `PATH` 环境变量之中（例如 `export PATH=$GOPATH/bin:$PATH`）；请勿将 `GOPATH` 设置为当前用户没有读写权限的目录
+2. 安装 kitex：`go get github.com/cloudwego/kitex/tool/cmd/kitex@latest`
+3. 安装 thriftgo：`go get github.com/cloudwego/thriftgo@latest`
+
+安装成功后，执行 `kitex --version` 和 `thriftgo --version` 应该能够看到具体版本号的输出（版本号有差异，以 x.x.x 示例）：
+
+ ```shell
+$ kitex --version
+vx.x.x
+
+$ thriftgo --version
+thriftgo x.x.x
+```
+4. 如果在安装阶段发生问题，可能主要是由于对 Golang 的不当使用造成，请依照报错信息进行检索
+
 ### 获取示例代码
 
-1. 你可以直接点击此处（TODO）下载示例仓库
-2. 也可以克隆该示例仓库到本地 `git clone -b v0.0.1 https://github.com/cloudwego/examples.git`
+1. 你可以直接点击[此处](https://github.com/cloudwego/kitex-examples/archive/refs/heads/main.zip)下载示例仓库
+2. 也可以克隆该示例仓库到本地 `git clone https://github.com/cloudwego/kitex-examples.git`
 
 ### 运行示例代码
 
+#### 方式一：直接启动
+
 1. 进入示例仓库的 `hello` 目录
 
-`cd examples/hello`
+   `cd examples/hello`
 
 2. 运行server
 
-`go run .`
+   `go run .`
 
 3. 运行client
 
-另起一个终端后，`go run ./client`
+   另起一个终端后，`go run ./client`
 
+#### 方式二：使用 Docker 快速启动
 
+1. 进入示例仓库目录
+   
+   `cd examples`
+   
+2. 编译项目
+   
+   `docker build -t kitex-examples .`
+3. 运行 server
+   
+   `docker run --network host kitex-examples ./hello-server`
+   
+4. 运行 client
+
+   另起一个终端后，`docker run --network host kitex-examples ./hello-client`
 
 恭喜你，你现在成功通过 Kitex 发起了 RPC 调用。
 
@@ -106,7 +148,7 @@ func (s *HelloImpl) Add(ctx context.Context, req *api.AddRequest) (resp *api.Add
 // Add implements the HelloImpl interface.
 func (s *HelloImpl) Add(ctx context.Context, req *api.AddRequest) (resp *api.AddResponse, err error) {
         // TODO: Your code here...
-        resp = &api.AddResponse{Result_: req.First + req.Second}
+        resp = &api.AddResponse{Sum: req.First + req.Second}
         return
 }
 ```

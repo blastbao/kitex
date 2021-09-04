@@ -180,14 +180,21 @@ func WithHTTPResolver(r http.Resolver) Option {
 	}}
 }
 
+// WithShortConnection forces kitex to close connection after each call is finished.
+func WithShortConnection() Option {
+	return Option{F: func(o *client.Options, di *utils.Slice) {
+		di.Push("WithShortConnection")
+
+		o.PoolCfg = new(connpool.IdleConfig)
+	}}
+}
+
 // WithLongConnection enables long connection with kitex's built-in pooling implementation.
 func WithLongConnection(cfg connpool.IdleConfig) Option {
 	return Option{F: func(o *client.Options, di *utils.Slice) {
 		di.Push(fmt.Sprintf("WithLongConnection(%+v)", cfg))
 
-		if o.PoolCfg == nil {
-			o.PoolCfg = connpool.CheckPoolConfig(cfg)
-		}
+		o.PoolCfg = connpool.CheckPoolConfig(cfg)
 	}}
 }
 
@@ -270,8 +277,8 @@ func WithTracer(c stats.Tracer) Option {
 func WithStatsLevel(level stats.Level) Option {
 	return Option{F: func(o *client.Options, di *utils.Slice) {
 		di.Push(fmt.Sprintf("WithStatsLevel(%+v)", level))
-
-		o.StatsLevel = level
+		l := level
+		o.StatsLevel = &l
 	}}
 }
 

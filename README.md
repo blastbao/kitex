@@ -20,11 +20,12 @@ Kitex 字节跳动内部的 Golang 微服务 RPC 框架，具有**高性能**、
 
   传输协议封装消息协议进行 RPC 互通，传输协议可以额外透传元信息，用于服务治理，Kitex 支持的传输协议有 **TTHeader**、**HTTP2**。TTHeader 可以和 Thrift、Kitex Protobuf 结合使用；HTTP2 目前主要是结合 gRPC 协议使用，后续也会支持 Thrift。
 
-- **多交互方式**
+- **多种消息类型*
 
-  支持 **PingPong**、**Oneway**、**双向 Streaming**。其中 Oneway 目前支对 Thrift 协议支持，双向 Streaming 只对 gRPC 支持，后续会考虑支持 Thrift 的双向 Streaming。
+  支持 **PingPong**、**Oneway**、**双向 Streaming**。其中 Oneway 目前只对 Thrift 协议支持，双向 Streaming 只对 gRPC 支持，后续会考虑支持 Thrift 的双向 Streaming。
 
 - **服务治理**
+
 
   支持服务注册/发现、负载均衡、熔断、限流、重试、监控、链路跟踪、日志、诊断等服务治理模块，大部分均已提供默认扩展，使用者可选择集成。
 
@@ -66,7 +67,7 @@ Kitex 字节跳动内部的 Golang 微服务 RPC 框架，具有**高性能**、
     
     - 基本特性
     
-      - [请求方式（PingPong、Oneway、Streaming）](docs/guide/basic-features/interaction_cn.md)
+      - [消息类型（PingPong、Oneway、Streaming）](docs/guide/basic-features/message_type_cn.md)
     
       - [支持协议（Thrift、Kitex Protobuf、gRPC protocol）](docs/guide/basic-features/protocols_cn.md)
     
@@ -111,6 +112,8 @@ Kitex 字节跳动内部的 Golang 微服务 RPC 框架，具有**高性能**、
     - 代码生成
     
       - [代码生成工具](docs/guide/basic-features/code_generation_cn.md)
+
+      - [Combine Service](docs/guide/basic-features/combine_service_cn.md)
     
     - 框架扩展
     
@@ -148,7 +151,7 @@ Kitex 字节跳动内部的 Golang 微服务 RPC 框架，具有**高性能**、
 ## 相关项目
 - [Netpoll](https://github.com/cloudwego/netpoll): 自研的高性能网络库，Kitex 默认集成的。
 - [kitex-contrib](https://github.com/kitex-contrib)：Kitex 的部分扩展库，使用者可以根据需求通过 Option 集成进 Kitex 中。
-- [Example](TODO)：Kitex 的使用示例。
+- [Example](https://github.com/cloudwego/kitex-examples)：Kitex 的使用示例。
 
 ## 相关文章
 
